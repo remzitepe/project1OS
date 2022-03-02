@@ -38,12 +38,15 @@ int main( int argc, char* argv[])
 
 		printf("mq_send success, item size = %d\n",
 		       (int) sizeof(struct item));
+
+		//printf("item->id  = %d\n", item.id);
 		printf("item->intCount  = %d\n", item.intCount);
 		printf("item->intWidth = %d\n", item.intWidth);
         printf("item->intStart = %d\n", item.intStart);
 		printf("\n");
-
-
+	
+		
+	
 	mq_close(mq);
 
 	return 0;
