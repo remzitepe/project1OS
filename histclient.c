@@ -45,8 +45,6 @@ int main( int argc, char* argv[])
         printf("item->intStart = %d\n", item.intStart);
 		printf("\n");
 	
-		
-	
 	mq_close(mq);
 
 	return 0;
