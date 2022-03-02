@@ -15,11 +15,14 @@ int* calculateHistogram(char* inputFile, int count, int width, int start){
     char line[256];
 
 	int* histogram_array = malloc(sizeof(int) * count);
+	for(int i = 0; i < count; i++){
+		histogram_array[i] = 0;
+	}
 
     while (fgets(line, sizeof(line), file)) {
         /* note that fgets don't strip the terminating \n, checking its
            presence would allow to handle lines longer that sizeof(line) */
-		histogram_array[(atoi(file) - start) / width]++;
+		histogram_array[(atoi(line) - start) / width]++;
     }
     /* may check feof here to make a difference between eof and io failure -- network
        timeout for instance */
@@ -27,47 +30,6 @@ int* calculateHistogram(char* inputFile, int count, int width, int start){
     fclose(file);
 
     return histogram_array;
-}
-
-// Creating a message queue
-void create_mq(pid_t pid, int count, int width, int start){
-	mqd_t mq;
-    struct item item;
-	int n;
-
-	mq = mq_open(MQNAME, O_RDWR);
-   
-    char *p;
-    int intervalCount = count;
-    int intervalWidth = width;
-    int intervalStart = start;
-
-     if (mq == -1) {
-		perror("can not open msg queue\n");
-		exit(1);
-	}
-	printf("mq opened, mq id = %d\n", (int) mq);
-
-	item.pid = getpid();
-	item.intCount = intervalCount;
-    item.intWidth = intervalWidth;
-    item.intStart = intervalStart;
-	n = mq_send(mq, (char *) &item, sizeof(struct item), 0);
-
-	if (n == -1) {
-		perror("mq_send failed\n");
-		exit(1);
-	}
-
-	printf("mq_send success, item size = %d\n",
-		(int) sizeof(struct item));
-
-	printf("item->pid  = %d\n", item.pid);
-	printf("\n");
-	
-	mq_close(mq);
-
-	return 0;
 }
 
 int main( int argc, char* argv[])
@@ -115,7 +77,6 @@ int main( int argc, char* argv[])
         printf("received item->intStart = %d\n", itemptr->intStart);
 		printf("\n");
 
-
 	free(bufptr);
 	mq_close(mq);
 
@@ -127,7 +88,11 @@ int main( int argc, char* argv[])
 	// Creating n child processes
 	pid_t child_process[numberOfFiles];
 	pid_t parent;
-
+	int file_index = 2;
+	mqd_t mq2;
+	struct item item2;
+	mq2 = mq_open(MQNAME, O_RDWR);
+	
 	int** histogram_data = malloc(numberOfFiles * sizeof(int*));
 	for(int i = 0; i < numberOfFiles; i++){
 		histogram_data[i] = malloc(count * sizeof(int));
@@ -139,7 +104,34 @@ int main( int argc, char* argv[])
 			exit(-1);
 		}
 		else if(child_process[i] == 0){
+			
 			histogram_data[i] = calculateHistogram(argv[i + 2], count, width, start);
+			// Creating a message queue for child and parent 
+			// Child is a producer
+			
+			if (mq2 == -1) {
+				perror("can not open msg queue\n");
+				exit(1);
+			}
+			printf("mq opened, mq2 id = %d\n", (int) mq2);
+			item2.intCount = count;
+			item2.intWidth = width;
+			item2.intStart = start;
+			item2.pid = getpid();
+			item2.histogram_data = calculateHistogram(argv[file_index], count, width, start);
+			file_index++;
+			n = mq_send(mq, (char *) &item2, sizeof(struct item), 0);
+			if (n == -1) {
+				perror("mq_send failed\n");
+				exit(1);
+			}
+			printf("mq_send success, item size = %d\n",
+		       (int) sizeof(struct item));
+			printf("Child id: %d\n", item2.pid);
+			printf("Histogram Data:\n");
+			for(int i = 0; i < count; i++){
+				printf("[%d,%d): %d\n",start + (i*width),(start + ((i +1)*width)),item2.histogram_data[i]);
+			}
 		}
 		else{
 			wait(NULL);
@@ -147,7 +139,7 @@ int main( int argc, char* argv[])
 			exit(0);
 		}
 	}
-	
-	
+
+	mq_close(mq);
 	return 0;
 }
