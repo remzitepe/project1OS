@@ -3,9 +3,10 @@ struct item {
 	int intCount;
 	int intWidth;
 	int intStart;
-	int* histogram_data; 
 	pid_t pid;
 };
 
-
+struct item_arr{
+	int histogram_data[1000];
+};
 #define MQNAME "/justaname"
