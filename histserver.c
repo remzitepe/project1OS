@@ -9,26 +9,24 @@
 
 
 //Calculating Histogram
-int* calculateHistogram(char* inputFile, int count, int width, int start){
+void calculateHistogram(int** histogram_arr, char* inputFile, int count, int width, int start){
 	char const* const fileName = inputFile; /* should check that argc > 1 */
     FILE* file = fopen(fileName, "r"); /* should check the result */
     char line[256];
 
-	int histogram_array[count];
 	for(int i = 0; i < count; i++)
-		histogram_array[i] = 0;
+		histogram_arr[i] = 0;
 
     while (fgets(line, sizeof(line), file)) {
         /* note that fgets don't strip the terminating \n, checking its
            presence would allow to handle lines longer that sizeof(line) */
-		histogram_array[(atoi(line) - start) / width]++;
+		histogram_arr[(atoi(line) - start) / width]++;
     }
     /* may check feof here to make a difference between eof and io failure -- network
        timeout for instance */
 
     fclose(file);
-
-    return histogram_array;
+	
 }
 
 int main( int argc, char* argv[])
@@ -91,7 +89,6 @@ int main( int argc, char* argv[])
 	int file_index = 2;
 	mqd_t mq2;
 	struct item item2;
-	struct item_arr item_arr;
 	mq2 = mq_open(MQNAME, O_RDWR);
 	
 	for(int i = 0; i < numberOfFiles; i++){
@@ -110,18 +107,23 @@ int main( int argc, char* argv[])
 				exit(1);
 			}
 			printf("mq2 opened, mq2 id = %d\n", (int) mq2);
-			int* temp_arr;
+			int temp_arr[count];
+			for( int j = 0; j < count; j++)
+				temp_arr[j] = 0;
 			item2.intCount = count;
 			item2.intWidth = width;
 			item2.intStart = start;
+				printf("dasdsdasdasf");
 			item2.pid = getpid();
-			temp_arr = calculateHistogram(argv[file_index], count, width, start);
+				printf("dasddas");
+			calculateHistogram(&temp_arr, argv[file_index], count, width, start);
+			printf("dasd");
 			file_index++;
 			for(int j = 0; j < count; j++){
-				item_arr.histogram_data[j] = temp_arr[j];
+			 	item2.histogram_data[j] = temp_arr[j];
 			}
 			n = mq_send(mq2, (char *) &item2, sizeof(struct item), 0);
-			int n2 = mq_send(mq2, (char *) &item_arr, sizeof(struct item_arr), 0);
+			
 			if (n == -1) {
 				perror("mq_send failed in mq2\n");
 				exit(1);
@@ -131,37 +133,38 @@ int main( int argc, char* argv[])
 			
 		}
 		else{
-			wait(NULL);
+			waitpid(child_process, NULL, 0);
 			printf("Child complete\n");
 			mq_getattr(mq2, &mq_attr);
+			
 			printf("mq2 maximum msgsize = %d\n", (int) mq_attr.mq_msgsize);
 			/* allocate large enough space for the buffer to store 
 			an incoming message */
+		
 			buflen = mq_attr.mq_msgsize;
 			bufptr = (char *) malloc(buflen);
-			
 			n = mq_receive(mq2, (char *) bufptr, buflen, NULL);
 			if (n == -1) {
 				perror("mq_receive failed\n");
 				exit(1);
 			}
-			int start = itemptr->intStart;
-			int count = itemptr->intCount;
-			int width = itemptr->intWidth;
-
+			start = itemptr->intStart;
+			count = itemptr->intCount;
+			width = itemptr->intWidth;
+			printf( " addsadas");
 			printf("mq_receive success for mq2, message size = %d\n", n);
 			itemptr = (struct item *) bufptr;
-			struct item_arr *itemptr_arr;
-			itemptr_arr = (struct item_arr *)
 			printf("received item for mq2->intCount = %d\n", itemptr->intCount);
-			printf("Child id: %d\n", itemptr->pid);
+			printf("Child id: %d\n", getpid());
 			printf("Histogram Data:\n");
 			for(int j = 0; j < count; j++){
-				printf("[%d,%d): %d\n",start + (j*width),(start + ((j +1)*width)),itemptr_arr->histogram_data[j]);
+				printf("[%d,%d): %d\n",start + (j*width),(start + ((j +1)*width)),itemptr->histogram_data[j]);
 			}
-			free(bufptr);	
+			free(bufptr);
+			exit(0);
 		}
 	}
+	
 	mq_close(mq2);
 	return 0;
 }

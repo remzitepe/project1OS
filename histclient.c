@@ -34,7 +34,7 @@ int main( int argc, char* argv[])
 		if (n == -1) {
 			perror("mq_send failed\n");
 			exit(1);
-		}
+		}  
 
 		printf("mq_send success, item size = %d\n",
 		       (int) sizeof(struct item));
